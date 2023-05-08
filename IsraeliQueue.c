@@ -109,8 +109,8 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode);
 
 IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
     ////////////////////////////////////////////////////////////////
-    printf("Enqueue item %d\n", *(int*)item);
-    printf("print Q\n");
+    printf("Enqueue item %d\n ", *(int*)item);
+    printf("------------ print Q\n------------");
     Node temp = queue->head;
     while(temp != NULL){
         printf(" %d", *(int*)temp->item);
@@ -180,6 +180,7 @@ IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
 }
 
 bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
+    //printf("-------------Entered enqueueAux\n");
     if(head == NULL){
         head->next = newNode;
         return false;
@@ -195,19 +196,22 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
             if (fMeasure > queue->friendshipThreshold && current->friends < FRIEND_QUOTA) {
                 //this means we found a friend
                 printf("Friend found!\n");
-                if(current->next == NULL){
+                /*if(current->next == NULL){
                     printf("friend is last\n");
                     //the friend is the last one
                     current->next = newNode;
                     current->friends++;
                     printf("Enqueued after %d, friends of curr = %d\n", *(int*)current->item, current->friends);
                     return true;
-                }
-                while (current->next != NULL) {
+                }*/
+
+                Node current2 = current->next;
+                while (current2 != NULL) {
+                    //printf("==== current2 = %d\n", *(int*)current2->item);
                     int enemyIdx = 0, avg = 0;
                     bool flag = false;
                     while (queue->friendshipFunctions[enemyIdx] != NULL) {
-                        int friendshipMeasure = queue->friendshipFunctions[enemyIdx](current->item, newNode->item);
+                        int friendshipMeasure = queue->friendshipFunctions[enemyIdx](current2->item, newNode->item);
                         if (friendshipMeasure > queue->friendshipThreshold) {
                             //this means we found a friend
                             flag = true;
@@ -220,19 +224,21 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
                     if (!flag) {
                         avg /= enemyIdx;
                     }
-                    if (avg < queue->rivalryThreshold) {
+                    if (avg < queue->rivalryThreshold && current2->rivals < RIVAL_QUOTA) {
                         // found enemy
-                        enemy = current;
-                        enqueueAux(queue, enemy->next, newNode);
+                        printf("Found enemy! %d\n", *(int*)current2->item);
+                        enemy = current2;
+                        enemy->rivals++;
+                        return enqueueAux(queue, enemy->next, newNode);
                     }
-                    // if no enemies:
-                    newNode->next = current->next;
-                    current->next = newNode;
-                    current->friends++;
-                    printf("Enqueued after %d, friends of curr = %d \n", *(int*)current->item, current->friends);
-                    printf("rivals of current: %d\n", current->rivals);
-                    return true;
+                    current2 = current2->next;
                 }
+                // if no enemies:
+                newNode->next = current->next;
+                current->next = newNode;
+                current->friends++;
+                printf("****** Enqueued after %d, friends of curr = %d \n", *(int*)current->item, current->friends);
+                return true;
             }
             index++;
         }
