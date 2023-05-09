@@ -106,8 +106,8 @@ void IsraeliQueueDestroy(IsraeliQueue q) {
 }
 
 bool enqueueAux(IsraeliQueue queue, Node head, Node newNode);
-
-IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
+IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item);
+IsraeliQueueError IsraeliQueueEnqueueAux2(IsraeliQueue queue, void *item, int friends, int rivals){
     ////////////////////////////////////////////////////////////////
     printf("Enqueue item %d\n ", *(int*)item);
     printf("------------ print Q\n------------");
@@ -126,8 +126,8 @@ IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
     }
     newNode->item = item;
     newNode->next = NULL;
-    newNode->friends = 0;
-    newNode->rivals = 0;
+    newNode->friends = friends;
+    newNode->rivals = rivals;
 
     if(queue->head == NULL){
         //this means that the queue is empty and this is the first node we added
@@ -177,6 +177,9 @@ IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
 */
     queue->queueSize++;
     return ISRAELIQUEUE_SUCCESS;
+}
+IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item){
+    return IsraeliQueueEnqueueAux2(queue, item, 0,0);
 }
 
 bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
@@ -320,43 +323,6 @@ IsraeliQueue IsraeliQueueMerge(IsraeliQueue* qarr, ComparisonFunction compare_fu
     return merged;
 }
 
-IsraeliQueueError IsraeliQueueImprovePositions(IsraeliQueue q) {
-    if (q == NULL) {
-        return ISRAELIQUEUE_BAD_PARAM;
-    }
-
-    int size = IsraeliQueueSize(q);
-    if (size < 2) {
-        return ISRAELIQUEUE_SUCCESS;
-    }
-
-    void** items = malloc(size * sizeof(void*));
-    if (items == NULL) {
-        return ISRAELIQUEUE_ALLOC_FAILED;
-    }
-
-    // Dequeue all items and store them in an array
-    for (int i = 0; i < size; i++) {
-        void* item = IsraeliQueueDequeue(q);
-        if (item == NULL) {
-            // Dequeue failed, destroy array and return error
-            for (int j = 0; j < i; j++) {
-                free(items[j]);
-            }
-            free(items);
-            return ISRAELIQUEUE_BAD_PARAM;
-        }
-        items[i] = item;
-    }
-
-    // Re-enqueue items in the correct order
-    for (int i = 0; i < size; i++) {
-        IsraeliQueueEnqueue(q, items[i]);
-    }
-
-    free(items);
-    return ISRAELIQUEUE_SUCCESS;
-}
 
 bool IsraeliQueueContains(IsraeliQueue queue, void *item){
     if(queue == NULL || item == NULL){
@@ -412,3 +378,28 @@ void* IsraeliQueueDequeue(IsraeliQueue queue){ //TODO
 }
 
 
+IsraeliQueueError IsraeliQueueImprovePositions(IsraeliQueue queue){
+    printf("Improve function\n");
+    Node* nodesArray = malloc(sizeof (Node) * (queue->queueSize));
+    Node current = queue->head;
+    if (queue->head == NULL){
+        return ISRAELIQUEUE_BAD_PARAM;
+    }
+    for(int i = queue->queueSize-1; i >= 0; i--){
+        nodesArray[i] = current;
+        current = current->next;
+    }
+    for(int i = 0; i < queue->queueSize; i++){
+        if(i == 0){
+            nodesArray[i+1]->next = NULL;
+        }
+        if(i = queue->queueSize-1){
+            queue->head = queue->head->next;
+        }
+        nodesArray[i+1]->next = nodesArray[i-1];
+        IsraeliQueueEnqueueAux2(queue, nodesArray[i]->item, nodesArray[i]->friends, nodesArray[i]->rivals);
+        free(nodesArray[i]);
+    }
+    return ISRAELIQUEUE_SUCCESS;
+
+}
