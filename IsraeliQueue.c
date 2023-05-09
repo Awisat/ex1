@@ -9,6 +9,7 @@ struct node_t {
     Node next;
     int friends;
     int rivals;
+    int improved;
 };
 
 struct IsraeliQueue_t {
@@ -55,7 +56,7 @@ IsraeliQueue IsraeliQueueCreate(FriendshipFunction *friendshipFunctions, Compari
 }
 
 IsraeliQueue IsraeliQueueClone(IsraeliQueue q){
-    IsraeliQueue newQueue = malloc(sizeof (IsraeliQueue));
+    IsraeliQueue newQueue = malloc(sizeof (struct IsraeliQueue_t));
     if(newQueue == NULL){
         //allocating memory failed
         return NULL;
@@ -64,13 +65,13 @@ IsraeliQueue IsraeliQueueClone(IsraeliQueue q){
     newQueue->rivalryThreshold = q->rivalryThreshold;
     newQueue->comparison = q->comparison;
     newQueue->friendshipFunctions = q->friendshipFunctions;
-    newQueue->head = malloc(sizeof (Node));
+    newQueue->head = malloc(sizeof (struct node_t));
     newQueue->head = NULL;
 
     Node current = q->head;
     Node previous = NULL;
     while(current != NULL){
-        Node newNode = malloc(sizeof (Node));
+        Node newNode = malloc(sizeof (struct node_t));
         if(newNode == NULL){
             //allocating memory failed
             return NULL;
@@ -119,7 +120,7 @@ IsraeliQueueError IsraeliQueueEnqueueAux2(IsraeliQueue queue, void *item, int fr
     printf("\n");
     ////////////////////////////////////////////////////////////////
 
-    Node newNode = malloc(sizeof (Node));
+    Node newNode = malloc(sizeof (struct node_t));
 
     if(newNode == NULL){
         return ISRAELIQUEUE_ALLOC_FAILED;
@@ -128,6 +129,7 @@ IsraeliQueueError IsraeliQueueEnqueueAux2(IsraeliQueue queue, void *item, int fr
     newNode->next = NULL;
     newNode->friends = friends;
     newNode->rivals = rivals;
+    newNode->improved = 1;
 
     if(queue->head == NULL){
         //this means that the queue is empty and this is the first node we added
@@ -273,57 +275,6 @@ IsraeliQueueError IsraeliQueueAddFriendshipMeasure(IsraeliQueue queue, Friendshi
     return ISRAELIQUEUE_SUCCESS;
 }
 
-IsraeliQueue IsraeliQueueMerge(IsraeliQueue* qarr, ComparisonFunction compare_function) {
-    if (qarr == NULL || compare_function == NULL) {
-        return NULL;
-    }
-
-    int num_queues = 0;
-    for (int i = 0; qarr[i] != NULL; i++) {
-        num_queues++;
-    }
-
-    IsraeliQueue merged = IsraeliQueueCreate(NULL, compare_function, 0, 0);
-    if (merged == NULL) {
-        return NULL;
-    }
-
-    int current_queue = 0;
-    while (current_queue < num_queues) {
-        IsraeliQueue current = qarr[current_queue];
-        if (current != NULL && IsraeliQueueSize(current) > 0) {
-            void* item = IsraeliQueueDequeue(current);
-            if (item != NULL) {
-                IsraeliQueueEnqueue(merged, item);
-            } else {
-                // Dequeue failed, destroy merged queue and return NULL
-                IsraeliQueueDestroy(merged);
-                return NULL;
-            }
-        } else {
-            current_queue++;
-        }
-    }
-
-    // If any queues still have items, enqueue them in the order of qarr
-    for (int i = current_queue; i < num_queues; i++) {
-        IsraeliQueue current = qarr[i];
-        while (current != NULL && IsraeliQueueSize(current) > 0) {
-            void* item = IsraeliQueueDequeue(current);
-            if (item != NULL) {
-                IsraeliQueueEnqueue(merged, item);
-            } else {
-                // Dequeue failed, destroy merged queue and return NULL
-                IsraeliQueueDestroy(merged);
-                return NULL;
-            }
-        }
-    }
-
-    return merged;
-}
-
-
 bool IsraeliQueueContains(IsraeliQueue queue, void *item){
     if(queue == NULL || item == NULL){
         return false;
@@ -380,26 +331,68 @@ void* IsraeliQueueDequeue(IsraeliQueue queue){ //TODO
 
 IsraeliQueueError IsraeliQueueImprovePositions(IsraeliQueue queue){
     printf("Improve function\n");
-    Node* nodesArray = malloc(sizeof (Node) * (queue->queueSize));
-    Node current = queue->head;
-    if (queue->head == NULL){
+    if(queue == NULL){
         return ISRAELIQUEUE_BAD_PARAM;
     }
-    for(int i = queue->queueSize-1; i >= 0; i--){
-        nodesArray[i] = current;
+    if(queue->queueSize == 0 || queue->queueSize == 1){
+        return ISRAELIQUEUE_SUCCESS;
+    }
+
+    // Initialize all improved fields to 0
+    Node current = queue->head;
+    while(current != NULL){
+        current->improved = 0;
         current = current->next;
     }
-    for(int i = 0; i < queue->queueSize; i++){
-        if(i == 0){
-            nodesArray[i+1]->next = NULL;
+
+    // While there are not improved nodes
+    int notImprovedCount = queue->queueSize;
+    while(notImprovedCount > 0){
+
+        // Find not improved closest to TAIL
+        Node notImprovedNode = queue->head;   // To save the last not improved node
+        Node notImprovedPreviousNode = NULL;  // To save the node previous to the last not improved node
+        current = queue->head;
+
+        while(current->next != NULL){
+            if(current->next->improved == false){
+                // Found a new not improved
+                notImprovedNode = current->next;
+                notImprovedPreviousNode = current;
+            }
+            current = current->next;
         }
-        if(i = queue->queueSize-1){
-            queue->head = queue->head->next;
+
+        // Take it out the queue
+        queue->queueSize--;
+        if(notImprovedPreviousNode == NULL) {
+            // If it's the first node, update head
+            queue->head = notImprovedNode->next;
+        } else {
+            // If it's not the first node, update next of previous node
+            notImprovedPreviousNode->next = notImprovedNode->next;
         }
-        nodesArray[i+1]->next = nodesArray[i-1];
-        IsraeliQueueEnqueueAux2(queue, nodesArray[i]->item, nodesArray[i]->friends, nodesArray[i]->rivals);
-        free(nodesArray[i]);
+
+        // Enqueue the node and mark it as improved
+        IsraeliQueueEnqueueAux2(queue, notImprovedNode->item, notImprovedNode->friends, notImprovedNode->rivals);
+
+        // Free the memory
+        free(notImprovedNode);
+
+        // Decrease count of not improved nodes
+        notImprovedCount--;
+
     }
     return ISRAELIQUEUE_SUCCESS;
+}
+
+int PowerFunction(int base, int exponent){
+    int result = 1;
+    for(exponent; exponent > 0; exponent--){
+        result *= base;
+    }
+    return result;
+}
+IsraeliQueue IsraeliQueueMerge(IsraeliQueue* queue,ComparisonFunction comparison){
 
 }
