@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "IsraeliQueue.h"
 #include "stdio.h"
+#include "math.h"
 #include "malloc.h"
 
 typedef struct node_t * Node;
@@ -386,7 +387,7 @@ IsraeliQueueError IsraeliQueueImprovePositions(IsraeliQueue queue){
     return ISRAELIQUEUE_SUCCESS;
 }
 
-int PowerFunction(int base, int exponent){
+int PowerFunction(int base, float exponent){
     int result = 1;
     for(exponent; exponent > 0; exponent--){
         result *= base;
@@ -394,5 +395,22 @@ int PowerFunction(int base, int exponent){
     return result;
 }
 IsraeliQueue IsraeliQueueMerge(IsraeliQueue* queue,ComparisonFunction comparison){
+        int size;
+        for(int i=0; queue[i]!= NULL; i++){
+            size++;
+        }
+        IsraeliQueue mergedQueue = malloc(size * sizeof ( struct IsraeliQueue_t));
+        int newFriendshipThreshold = 0;
+        for(int i=0; i < size; i++){
+            newFriendshipThreshold += newFriendshipThreshold;
+        }
+        for(int i=0; i < size; i++){
+            for(int j=0; queue[i]->friendshipFunctions[j] != NULL; j++){
+                IsraeliQueueAddFriendshipMeasure(mergedQueue, queue[i]->friendshipFunctions[j]);
+            }
+        }
+        newFriendshipThreshold = newFriendshipThreshold/size;
+        mergedQueue->friendshipThreshold = newFriendshipThreshold;
+        mergedQueue->comparison = comparison;
 
 }
