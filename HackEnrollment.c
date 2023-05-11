@@ -1,3 +1,4 @@
+#include <string.h>
 #include "HackEnrollment.h"
 #include "IsraeliQueue.h"
 #include "stdio.h"
@@ -55,7 +56,13 @@ int IdDiffFunction(void* student1, void* student2){
     return result;
 }
 
+int HackersFile(void* student1, void* student2){
+    return 0; // TODO
+}
 
+int AsciiDiff(void* student1, void* student2){
+    return 0; // TODO
+}
 
 // TODO is malloc/re-alloc fail return NULL
 EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
@@ -63,17 +70,35 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
     if(newEnrollmentSystem == NULL){ // to check if malloc failed
         return NULL;
     }
-    Student student = malloc(sizeof (struct Student_t));
+
     int studentsCount = 0;
-    while (fscanf(students, "%d %d %lf %s %s %s", &student->id, &student->totalCredits,
-                  &student->gpa, student->name, student->surname, student->department) == 6){
+    printf("read students\n");
+    newEnrollmentSystem->students = malloc(sizeof (struct Student_t));
+
+    while (true){
+        int id, totalCredits;
+        double gpa;
+        char *name, *surname, *city, *department;
+        int res = fscanf(students, "%d %d %lf %ms %ms %ms %ms\n", &id, &totalCredits,
+               &gpa, &name, &surname, &city, &department);
+        if(res != 7) {
+            break;
+        }
         newEnrollmentSystem->students = realloc(newEnrollmentSystem->students,
                                                 (studentsCount + 1) * sizeof (struct Student_t));
+        Student student = newEnrollmentSystem->students[studentsCount];
+        student->id = id;
+        student->totalCredits = totalCredits;
+        student->gpa = gpa;
+        student->name = name;
+        student->surname = surname;
+        student->city = city;
+        student->department = department;
         student->isHacker = false;
         student->friends = NULL;
         student->rivals = NULL;
-        newEnrollmentSystem->students[studentsCount] = student;
         studentsCount++;
+        printf("student ID %d \n", student->id);
     }
 
     int id, hackerIndex = 0;
@@ -109,8 +134,6 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
             rivalsCount++;
         }
     }
-
-    free(student);
 
     Course course = malloc(sizeof (struct Course_t));
     int coursesCount = 0;
