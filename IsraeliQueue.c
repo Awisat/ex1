@@ -111,15 +111,15 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode);
 IsraeliQueueError IsraeliQueueEnqueue(IsraeliQueue queue, void *item);
 IsraeliQueueError IsraeliQueueEnqueueAux2(IsraeliQueue queue, void *item, int friends, int rivals){
     ////////////////////////////////////////////////////////////////
-    printf("Enqueue item %d\n ", *(int*)item);
-    printf("------------ print Q\n------------");
-    Node temp = queue->head;
-    while(temp != NULL){
-        printf(" %d", *(int*)temp->item);
-        temp = temp->next;
-    }
-    printf("\n");
-    ////////////////////////////////////////////////////////////////
+//    printf("Enqueue item %d\n ", *(int*)item);
+//    printf("------------ print Q\n------------");
+//    Node temp = queue->head;
+//    while(temp != NULL){
+//        printf(" %d", *(int*)temp->item);
+//        temp = temp->next;
+//    }
+//    printf("\n");
+//    ////////////////////////////////////////////////////////////////
 
     Node newNode = malloc(sizeof (struct node_t));
 
@@ -193,15 +193,15 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
     }
     Node current = head;
     while(current != NULL){
-        printf("current data is %d\n", *(int*)current->item);
+        //printf("current data is %d\n", *(int*)current->item);
         int index = 0, fMeasure = 0;
         Node friend, enemy;
         while(queue->friendshipFunctions[index] != NULL) {
             fMeasure = queue->friendshipFunctions[index](current->item, newNode->item);
-            printf("friendship measure = %d current friends = %d\n", fMeasure, current->friends);
+          //  printf("friendship measure = %d current friends = %d\n", fMeasure, current->friends);
             if (fMeasure > queue->friendshipThreshold && current->friends < FRIEND_QUOTA) {
                 //this means we found a friend
-                printf("Friend found!\n");
+                //printf("Friend found!\n");
                 /*if(current->next == NULL){
                     printf("friend is last\n");
                     //the friend is the last one
@@ -232,7 +232,7 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
                     }
                     if (avg < queue->rivalryThreshold && current2->rivals < RIVAL_QUOTA) {
                         // found enemy
-                        printf("Found enemy! %d\n", *(int*)current2->item);
+                        //printf("Found enemy! %d\n", *(int*)current2->item);
                         enemy = current2;
                         enemy->rivals++;
                         return enqueueAux(queue, enemy->next, newNode);
@@ -243,7 +243,7 @@ bool enqueueAux(IsraeliQueue queue, Node head, Node newNode){
                 newNode->next = current->next;
                 current->next = newNode;
                 current->friends++;
-                printf("****** Enqueued after %d, friends of curr = %d \n", *(int*)current->item, current->friends);
+                //printf("****** Enqueued after %d, friends of curr = %d \n", *(int*)current->item, current->friends);
                 return true;
             }
             index++;
@@ -394,23 +394,52 @@ int PowerFunction(int base, float exponent){
     }
     return result;
 }
-IsraeliQueue IsraeliQueueMerge(IsraeliQueue* queue,ComparisonFunction comparison){
-        int size;
-        for(int i=0; queue[i]!= NULL; i++){
-            size++;
+IsraeliQueue IsraeliQueueMerge(IsraeliQueue* qarr, ComparisonFunction compare_function) {
+    if (qarr == NULL || compare_function == NULL) {
+        return NULL;
+    }
+
+    int num_queues = 0;
+    for (int i = 0; qarr[i] != NULL; i++) {
+        num_queues++;
+    }
+
+    IsraeliQueue merged = IsraeliQueueCreate(NULL, compare_function, 0, 0);
+    if (merged == NULL) {
+        return NULL;
+    }
+
+    int current_queue = 0;
+    while (current_queue < num_queues) {
+        IsraeliQueue current = qarr[current_queue];
+        if (current != NULL && IsraeliQueueSize(current) > 0) {
+            void* item = IsraeliQueueDequeue(current);
+            if (item != NULL) {
+                IsraeliQueueEnqueue(merged, item);
+            } else {
+                // Dequeue failed, destroy merged queue and return NULL
+                IsraeliQueueDestroy(merged);
+                return NULL;
+            }
+        } else {
+            current_queue++;
         }
-        IsraeliQueue mergedQueue = malloc(size * sizeof ( struct IsraeliQueue_t));
-        int newFriendshipThreshold = 0;
-        for(int i=0; i < size; i++){
-            newFriendshipThreshold += newFriendshipThreshold;
-        }
-        for(int i=0; i < size; i++){
-            for(int j=0; queue[i]->friendshipFunctions[j] != NULL; j++){
-                IsraeliQueueAddFriendshipMeasure(mergedQueue, queue[i]->friendshipFunctions[j]);
+    }
+
+    // If any queues still have items, enqueue them in the order of qarr
+    for (int i = current_queue; i < num_queues; i++) {
+        IsraeliQueue current = qarr[i];
+        while (current != NULL && IsraeliQueueSize(current) > 0) {
+            void* item = IsraeliQueueDequeue(current);
+            if (item != NULL) {
+                IsraeliQueueEnqueue(merged, item);
+            } else {
+                // Dequeue failed, destroy merged queue and return NULL
+                IsraeliQueueDestroy(merged);
+                return NULL;
             }
         }
-        newFriendshipThreshold = newFriendshipThreshold/size;
-        mergedQueue->friendshipThreshold = newFriendshipThreshold;
-        mergedQueue->comparison = comparison;
+    }
 
+    return merged;
 }

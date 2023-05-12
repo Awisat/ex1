@@ -23,6 +23,8 @@ struct Student_t {
     int* rivals;
     int* courses;
     int coursesCount;
+    int numFriends;
+    int numRivals;
 };
 
 typedef struct Course_t * Course;
@@ -49,11 +51,57 @@ int IdDiffFunction(void* student1, void* student2){
 }
 
 int HackersFile(void* student1, void* student2){
-    return 0; // TODO
+    if(((Student)student1)->isHacker) {
+        // Check if friends
+        for (int i = 0; i < ((Student) student1)->numFriends; i++) {
+            if (((Student) student1)->friends[i] == ((Student) student2)->id) {
+                return 20;
+            }
+        }
+        // Check if rivals
+        for (int i = 0; i < ((Student) student1)->numRivals; i++) {
+            if (((Student) student1)->rivals[i] == ((Student) student2)->id) {
+                return -20;
+            }
+        }
+    }
+    if(((Student)student2)->isHacker) {
+        // Check if friends
+        for (int i = 0; i < ((Student) student2)->numFriends; i++) {
+            if (((Student) student2)->friends[i] == ((Student) student1)->id) {
+                return 20;
+            }
+        }
+        // Check if rivals
+        for (int i = 0; i < ((Student) student2)->numRivals; i++) {
+            if (((Student) student2)->rivals[i] == ((Student) student1)->id) {
+                return -20;
+            }
+        }
+    }
+    return 0;
 }
 
 int AsciiDiff(void* student1, void* student2){
-    return 0; // TODO
+    int distance = 0;
+    char* s1 = ((Student) (student1))->name;
+    char* s2 = ((Student) (student2))->name;
+    int length1 = strlen(s1);
+    int length2 = strlen(s2);
+    int minLength = length1 < length2 ? length1: length2;
+    for (int i = 0; i < minLength; i++) {
+        distance += abs(s1[i] - s2[i]);
+    }
+    if (length1 > length2) {
+        for (int i = minLength; i < length1; i++) {
+            distance += s1[i];
+        }
+    } else {
+        for (int i = minLength; i < length2; i++) {
+            distance += s2[i];
+        }
+    }
+    return distance;
 }
 
 int CompareFunction(void *obj1, void *obj2) {
@@ -112,6 +160,8 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
         student->isHacker = false;
         student->friends = NULL;
         student->rivals = NULL;
+        student->numFriends = 0;
+        student->numRivals = 0;
 
         student->name = malloc(strlen(buffName) + 1);
         student->surname = malloc(strlen(buffSurname) + 1);
@@ -167,6 +217,7 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
                 break;
             }
         }
+        hacker->numFriends = friendsCount;
         // Read rivals
         while(fscanf(hackers, "%d", &rival) == 1){
             hacker->rivals = realloc(hacker->rivals, (rivalsCount + 1) * sizeof (int));
@@ -176,6 +227,7 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
                 break;
             }
         }
+        hacker->numRivals = rivalsCount;
     }
 
     newEnrollmentSystem->courses = malloc(sizeof (struct Course_t));
@@ -244,10 +296,17 @@ void hackEnrollment(EnrollmentSystem sys, FILE* out){
     }
 
     // Create temp queues for printing
-    Course *coursesTemp = malloc(sys->coursesCount * sizeof(struct Course_t));
+    Course *coursesTemp = malloc(sys->coursesCount * sizeof(Course));
+
     for(int i = 0; i < sys->coursesCount; i++){
+        coursesTemp[i] = malloc(sizeof (struct Course_t));
+        printf("course count: %d\n", sys->coursesCount);
+        printf("temp queue created\n");
         FriendshipFunction function[] = {NULL};
-        coursesTemp[i]->courseQueue = IsraeliQueueCreate(function, CompareFunction, 0, 0);
+        printf("before creating queue: %d\n",i);
+        IsraeliQueue queue = IsraeliQueueCreate(function, CompareFunction, 0, 0);
+        coursesTemp[i]->courseQueue = queue;
+        printf("after creating queue:%d\n",i);
     }
 
     // Go over hackers and enqueue them in the courses they want
@@ -257,25 +316,29 @@ void hackEnrollment(EnrollmentSystem sys, FILE* out){
     for(hackerIndex = 0; hackerIndex < sys->studentsCount; hackerIndex++){
         int goodPlaces = 0;
         if(sys->students[hackerIndex]->isHacker){
+            printf("FOUND HACKER %d\n", sys->students[hackerIndex]->id);
             Student hacker = sys->students[hackerIndex];
-            for(courseIndex = 0; courseIndex< hacker->coursesCount; courseIndex++){
+            for(courseIndex = 0; courseIndex < hacker->coursesCount; courseIndex++){
                 int courseNumber = hacker->courses[courseIndex];
                 for(int i=0; i < sys->coursesCount; i++){
-                    if(sys->courses[courseIndex]->courseNumber == courseNumber){
-                        IsraeliQueueEnqueue(sys->courses[courseIndex]->courseQueue, hacker);
+                    if(sys->courses[i]->courseNumber == courseNumber){
+                        IsraeliQueueEnqueue(sys->courses[i]->courseQueue, hacker);
+                        printf("HACKER ENQUEUED %d in course %d\n", hacker->id, sys->courses[i]->courseNumber);
                         // Check how many courses hacker is in good place
                         int counter = 0;
-                        Student curr = (Student)(IsraeliQueueDequeue(sys->courses[courseIndex]->courseQueue));
-                        while(curr != NULL){
-                            if(curr->id == hacker->id && counter < sys->courses[courseIndex]->size) {
+                        Student curr;
+                        while((curr = (Student)(IsraeliQueueDequeue(sys->courses[i]->courseQueue))) && curr != NULL){
+                            counter++;
+                            if(curr->id == hacker->id && counter < sys->courses[i]->size) {
                                 // Hacker is in place < size
                                 goodPlaces++;
                             }
-                            IsraeliQueueEnqueue(coursesTemp[courseIndex]->courseQueue, curr);
+                            IsraeliQueueEnqueue(coursesTemp[i]->courseQueue, curr);
                         }
                     }
                 }
             }
+            printf("good %d", goodPlaces);
             if(hacker->coursesCount == 1 && goodPlaces < 1){
                 printError = true;
                 break;
@@ -292,13 +355,15 @@ void hackEnrollment(EnrollmentSystem sys, FILE* out){
     }
 
     for(int i = 0; i < sys->coursesCount; i++) {
-        fprintf(out, "%d ");
-        Student curr = IsraeliQueueDequeue(coursesTemp[i]->courseQueue);
-        while (curr != NULL){
-            fprintf(out, "%d ", curr->id);
-            curr = IsraeliQueueDequeue(coursesTemp[i]->courseQueue);
+        if(IsraeliQueueSize(coursesTemp[i]->courseQueue) != 0) {
+            fprintf(out, "%d ", sys->courses[i]->courseNumber);
+            Student curr = IsraeliQueueDequeue(coursesTemp[i]->courseQueue);
+            while (curr != NULL) {
+                fprintf(out, "%d ", curr->id);
+                curr = IsraeliQueueDequeue(coursesTemp[i]->courseQueue);
+            }
+            fprintf(out, "\n");
         }
-        fprintf(out, "\n");
     }
 
 }
