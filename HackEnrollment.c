@@ -13,7 +13,7 @@ typedef struct Student_t * Student;
 struct Student_t {
     int id;
     unsigned int totalCredits;
-    double gpa;
+    int gpa;
     char *name;
     char *surname;
     char *city;
@@ -32,14 +32,6 @@ struct Course_t{
   IsraeliQueue courseQueue;
 };
 
-/*
-typedef struct Hacker_t * Hacker;
-struct Hacker_t{
-    Student hacker;
-    int* friendsId;
-    int* rivalsId;
-};
-*/
 
  struct EnrollmentSystem_t {
     Student* students;
@@ -64,44 +56,86 @@ int AsciiDiff(void* student1, void* student2){
     return 0; // TODO
 }
 
+int CompareFunction(void *obj1, void *obj2) {
+    return 0; // TODO implement
+}
+
 // TODO is malloc/re-alloc fail return NULL
 EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
+    // Find the longest line in students
+    int longestLine = 0, currentLine = 0;
+    char c;
+    while((c = fgetc(students)) != EOF){
+        currentLine++;
+        if(c == '\n'){
+            if(currentLine > longestLine){
+                longestLine = currentLine;
+            }
+            currentLine =0;
+        }
+    }
+    rewind(students);
+
+    // Buffers for reading students
+    char* buffName = malloc(longestLine);
+    char* buffSurname = malloc(longestLine);
+    char* buffCity = malloc(longestLine);
+    char* buffDepartment = malloc(longestLine);
+
     EnrollmentSystem newEnrollmentSystem = malloc(sizeof (struct EnrollmentSystem_t));
-    if(newEnrollmentSystem == NULL){ // to check if malloc failed
+    if(newEnrollmentSystem == NULL || buffName == NULL || buffSurname == NULL ||
+        buffCity == NULL || buffDepartment == NULL){ // to check if malloc failed
         return NULL;
     }
 
+    // Read students
     int studentsCount = 0;
-    printf("read students\n");
     newEnrollmentSystem->students = malloc(sizeof (struct Student_t));
 
+    int id, totalCredits;
+    int gpa;
     while (true){
-        int id, totalCredits;
-        double gpa;
-        char *name, *surname, *city, *department;
-        int res = fscanf(students, "%d %d %lf %ms %ms %ms %ms\n", &id, &totalCredits,
-               &gpa, &name, &surname, &city, &department);
+        int res = fscanf(students, "%d %d %d %s %s %s %s\n", &id, &totalCredits, &gpa, buffName, buffSurname, buffCity, buffDepartment);
         if(res != 7) {
             break;
         }
+
         newEnrollmentSystem->students = realloc(newEnrollmentSystem->students,
                                                 (studentsCount + 1) * sizeof (struct Student_t));
-        Student student = newEnrollmentSystem->students[studentsCount];
+        Student  student = malloc(sizeof (struct Student_t));
+        newEnrollmentSystem->students[studentsCount] = student;
+
         student->id = id;
         student->totalCredits = totalCredits;
         student->gpa = gpa;
-        student->name = name;
-        student->surname = surname;
-        student->city = city;
-        student->department = department;
+
         student->isHacker = false;
         student->friends = NULL;
         student->rivals = NULL;
+
+        student->name = malloc(strlen(buffName) + 1);
+        student->surname = malloc(strlen(buffSurname) + 1);
+        student->city = malloc(strlen(buffCity) + 1);
+        student->department = malloc(strlen(buffDepartment) + 1);
+
+        if(student->name == NULL || student->surname == NULL || student->city == NULL || student->department == NULL){
+            return NULL;
+        }
+
+        strcpy(student->name, buffName);
+        strcpy(student->surname, buffSurname);
+        strcpy(student->city,buffCity);
+        strcpy(student->department,buffDepartment);
+
         studentsCount++;
-        printf("student ID %d \n", student->id);
     }
 
-    int id, hackerIndex = 0;
+    free(buffName);
+    free(buffSurname);
+    free(buffCity);
+    free(buffDepartment);
+
+    int hackerIndex = 0;
     while(fscanf(hackers, "%d", &id) != EOF){
         // Find the index of the hacker in students array
         for(hackerIndex = 0; hackerIndex < studentsCount; hackerIndex++){
@@ -115,31 +149,45 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
         // Read courses
         int desiredCoursesCount = 0, friendsCount = 0, rivalsCount = 0;
         int desiredCourse, friend, rival;
-        while(fscanf(hackers, "%d", &desiredCourse) != '\n'){
+        while(fscanf(hackers, "%d", &desiredCourse) == 1){
             hacker->courses = realloc(hacker->courses, (desiredCoursesCount + 1) * sizeof (int));
             hacker->courses[desiredCoursesCount] = desiredCourse;
             desiredCoursesCount++;
+            if(fgetc(hackers) == '\n'){
+                break;
+            }
         }
         hacker->coursesCount = desiredCoursesCount;
         // Read friends
-        while(fscanf(hackers, "%d", &friend) != '\n'){
+        while(fscanf(hackers, "%d", &friend) == 1){
             hacker->friends = realloc(hacker->friends, (friendsCount + 1) * sizeof (int));
             hacker->friends[friendsCount] = friend;
             friendsCount++;
+            if(fgetc(hackers) == '\n'){
+                break;
+            }
         }
         // Read rivals
-        while(fscanf(hackers, "%d", &rival) != '\n'){
+        while(fscanf(hackers, "%d", &rival) == 1){
             hacker->rivals = realloc(hacker->rivals, (rivalsCount + 1) * sizeof (int));
             hacker->rivals[rivalsCount] = rival;
             rivalsCount++;
+            if(fgetc(hackers) == '\n'){
+                break;
+            }
         }
     }
 
-    Course course = malloc(sizeof (struct Course_t));
-    int coursesCount = 0;
-    while(fscanf(courses, "%d %d", &course->courseNumber, &course->size) == 2){
+    newEnrollmentSystem->courses = malloc(sizeof (struct Course_t));
+    int coursesCount = 0, courseNumber, courseSize;
+    while(fscanf(courses, "%d %d", &courseNumber, &courseSize) == 2){
         newEnrollmentSystem->courses = realloc(newEnrollmentSystem->courses,
                                                (coursesCount + 1) * sizeof (struct Course_t));
+        Course course = malloc(sizeof (struct Course_t));
+        course->courseNumber = courseNumber;
+        course->size = courseSize;
+        FriendshipFunction function[] = {NULL};
+        course->courseQueue = IsraeliQueueCreate(function, CompareFunction, 20, 0);
         newEnrollmentSystem->courses[coursesCount] = course;
         coursesCount++;
     }
@@ -148,16 +196,12 @@ EnrollmentSystem createEnrollment(FILE* students, FILE* courses, FILE* hackers){
     return newEnrollmentSystem;
 }
 
-int CompareFunction(void *obj1, void *obj2) {
-    return 0; // TODO implement
-}
-
 EnrollmentSystem readEnrollment(EnrollmentSystem sys, FILE* queues){
     if(sys == NULL || queues == NULL){
         return NULL;
     }
     int courseNumber, courseIndex, studentIndex;
-    while(fscanf(queues, "%d", &courseNumber) != EOF){
+    while(fscanf(queues, "%d", &courseNumber) == 1){
         // Find course in courses array
         for(courseIndex = 0; courseIndex < sys->coursesCount; courseIndex++){
             if(courseNumber == sys->courses[courseIndex]->courseNumber){
@@ -165,11 +209,9 @@ EnrollmentSystem readEnrollment(EnrollmentSystem sys, FILE* queues){
             }
         }
         Course course = sys->courses[courseIndex];
-        FriendshipFunction function[] = {NULL};
-        course->courseQueue = IsraeliQueueCreate(function, CompareFunction, 20, 0);
 
         int studentId;
-        while(fscanf(queues, "%d", &studentId) != '\n'){
+        while(fscanf(queues, "%d", &studentId) == 1){
             // Find student in students array
             for(studentIndex = 0; studentIndex < sys->studentsCount; studentIndex++){
                 if(studentId == sys->students[studentIndex]->id){
@@ -180,6 +222,9 @@ EnrollmentSystem readEnrollment(EnrollmentSystem sys, FILE* queues){
             if(IsraeliQueueEnqueue(course->courseQueue, student) == ISRAELIQUEUE_ALLOC_FAILED){
                 IsraeliQueueDestroy(course->courseQueue);
                 return NULL;
+            }
+            if(fgetc(queues) == '\n'){
+                break;
             }
         }
     }
@@ -193,10 +238,11 @@ void hackEnrollment(EnrollmentSystem sys, FILE* out){
     // Add friendship functions to all courses queues
     int courseIndex=0;
     for(courseIndex = 0; courseIndex < sys->coursesCount; courseIndex++){
-            IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, IdDiffFunction);
-            IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, AsciiDiff);
-            IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, HackersFile);
+        IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, IdDiffFunction);
+        IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, AsciiDiff);
+        IsraeliQueueAddFriendshipMeasure(sys->courses[courseIndex]->courseQueue, HackersFile);
     }
+
     // Create temp queues for printing
     Course *coursesTemp = malloc(sys->coursesCount * sizeof(struct Course_t));
     for(int i = 0; i < sys->coursesCount; i++){
